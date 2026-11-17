@@ -1,3 +1,5 @@
+// Modified by Ichiloto from gpui 0.2.2: adds AtlasMemory and get_atlas_memory, which report
+// the sprite-atlas texture memory the platform renderer holds, for diagnostics.
 mod app_menu;
 mod keyboard;
 mod keystroke;

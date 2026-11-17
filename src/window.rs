@@ -1,3 +1,5 @@
+// Modified by Ichiloto from gpui 0.2.2: adds Window::paint_image_subpixel, which paints an
+// image at exactly the given bounds; paint_image keeps snapping them to whole device pixels.
 #[cfg(any(feature = "inspector", debug_assertions))]
 use crate::Inspector;
 use crate::{

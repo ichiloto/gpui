@@ -1,3 +1,5 @@
+// Modified by Ichiloto from gpui 0.2.2: records each atlas texture it creates and releases
+// for get_atlas_memory.
 use crate::{
     AtlasKey, AtlasTextureId, AtlasTextureKind, AtlasTile, Bounds, DevicePixels, PlatformAtlas,
     Point, Size, platform::AtlasTextureList,
