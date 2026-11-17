@@ -80,6 +80,7 @@ impl PlatformAtlas for MetalAtlas {
             texture.decrement_ref_count();
 
             if texture.is_unreferenced() {
+                crate::record_atlas_texture_released(texture.get_bytes());
                 textures.free_list.push(id.index as usize);
                 lock.tiles_by_key.remove(key);
             } else {
@@ -147,6 +148,7 @@ impl MetalAtlasState {
         texture_descriptor.set_pixel_format(pixel_format);
         texture_descriptor.set_usage(usage);
         let metal_texture = self.device.new_texture(&texture_descriptor);
+        crate::record_atlas_texture_created(get_texture_bytes(&metal_texture));
 
         let texture_list = match kind {
             AtlasTextureKind::Monochrome => &mut self.monochrome_textures,
@@ -193,7 +195,20 @@ struct MetalAtlasTexture {
     live_atlas_keys: u32,
 }
 
+/// The bytes a texture's pixels occupy: A8 is one byte a texel, BGRA8 four.
+fn get_texture_bytes(texture: &metal::TextureRef) -> usize {
+    let texel = match texture.pixel_format() {
+        metal::MTLPixelFormat::A8Unorm => 1,
+        _ => 4,
+    };
+    texture.width() as usize * texture.height() as usize * texel
+}
+
 impl MetalAtlasTexture {
+    fn get_bytes(&self) -> usize {
+        get_texture_bytes(&self.metal_texture)
+    }
+
     fn allocate(&mut self, size: Size<DevicePixels>) -> Option<AtlasTile> {
         let allocation = self.allocator.allocate(size.into())?;
         let tile = AtlasTile {

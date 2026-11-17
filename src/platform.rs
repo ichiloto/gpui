@@ -77,6 +77,53 @@ pub(crate) use linux::*;
 #[cfg(target_os = "macos")]
 pub(crate) use mac::*;
 pub use semantic_version::SemanticVersion;
+
+/// The bytes of sprite-atlas textures the platform renderer holds on the
+/// GPU, for diagnostics: live now, the largest total seen, and how many
+/// textures were created and released. Only the Metal atlas records them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AtlasMemory {
+    /// Bytes of live atlas textures.
+    pub live_bytes: usize,
+    /// The largest `live_bytes` seen.
+    pub high_water_bytes: usize,
+    /// Textures created.
+    pub created: usize,
+    /// Textures released.
+    pub released: usize,
+}
+
+static ATLAS_LIVE_BYTES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+static ATLAS_HIGH_WATER_BYTES: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+static ATLAS_CREATED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+static ATLAS_RELEASED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// The process's sprite-atlas texture memory.
+pub fn get_atlas_memory() -> AtlasMemory {
+    use std::sync::atomic::Ordering::Relaxed;
+    AtlasMemory {
+        live_bytes: ATLAS_LIVE_BYTES.load(Relaxed),
+        high_water_bytes: ATLAS_HIGH_WATER_BYTES.load(Relaxed),
+        created: ATLAS_CREATED.load(Relaxed),
+        released: ATLAS_RELEASED.load(Relaxed),
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn record_atlas_texture_created(bytes: usize) {
+    use std::sync::atomic::Ordering::Relaxed;
+    let live = ATLAS_LIVE_BYTES.fetch_add(bytes, Relaxed) + bytes;
+    ATLAS_HIGH_WATER_BYTES.fetch_max(live, Relaxed);
+    ATLAS_CREATED.fetch_add(1, Relaxed);
+}
+
+#[allow(dead_code)]
+pub(crate) fn record_atlas_texture_released(bytes: usize) {
+    use std::sync::atomic::Ordering::Relaxed;
+    ATLAS_LIVE_BYTES.fetch_sub(bytes, Relaxed);
+    ATLAS_RELEASED.fetch_add(1, Relaxed);
+}
 #[cfg(any(test, feature = "test-support"))]
 pub(crate) use test::*;
 #[cfg(target_os = "windows")]
