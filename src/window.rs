@@ -3134,6 +3134,39 @@ impl Window {
         frame_index: usize,
         grayscale: bool,
     ) -> Result<()> {
+        self.insert_image(bounds, corner_radii, data, frame_index, grayscale, true)
+    }
+
+    /// Paint an image into the scene for the next frame at the current z-index,
+    /// at exactly `bounds`, without snapping them to whole device pixels.
+    ///
+    /// The GPU samples the image at each covered device pixel's centre, so an
+    /// image can be placed and scaled at fractional positions, for example a
+    /// sprite that moves smoothly. [`Window::paint_image`] snaps its bounds
+    /// outwards to whole device pixels, which keeps 1:1 images crisp.
+    /// This method will panic if the frame_index is not valid
+    ///
+    /// This method should only be called as part of the paint phase of element drawing.
+    pub fn paint_image_subpixel(
+        &mut self,
+        bounds: Bounds<Pixels>,
+        corner_radii: Corners<Pixels>,
+        data: Arc<RenderImage>,
+        frame_index: usize,
+        grayscale: bool,
+    ) -> Result<()> {
+        self.insert_image(bounds, corner_radii, data, frame_index, grayscale, false)
+    }
+
+    fn insert_image(
+        &mut self,
+        bounds: Bounds<Pixels>,
+        corner_radii: Corners<Pixels>,
+        data: Arc<RenderImage>,
+        frame_index: usize,
+        grayscale: bool,
+        snap_to_device_pixels: bool,
+    ) -> Result<()> {
         self.invalidator.debug_assert_paint();
 
         let scale_factor = self.scale_factor();
@@ -3158,14 +3191,19 @@ impl Window {
         let content_mask = self.content_mask().scale(scale_factor);
         let corner_radii = corner_radii.scale(scale_factor);
         let opacity = self.element_opacity();
+        let bounds = if snap_to_device_pixels {
+            bounds
+                .map_origin(|origin| origin.floor())
+                .map_size(|size| size.ceil())
+        } else {
+            bounds
+        };
 
         self.next_frame.scene.insert_primitive(PolychromeSprite {
             order: 0,
             pad: 0,
             grayscale,
-            bounds: bounds
-                .map_origin(|origin| origin.floor())
-                .map_size(|size| size.ceil()),
+            bounds,
             content_mask,
             corner_radii,
             tile,
